@@ -62,7 +62,11 @@ public class SimpleHttp: NSObject {
                 errorBlock(.serviceError(error)) //Error
             } else if let response = response as? HTTPURLResponse,
                 300..<600 ~= response.statusCode {
-                errorBlock(.statusCode(response.statusCode)) //Error
+                var dataString: String? = nil
+                if let data {
+                    dataString = String(data: data, encoding: .utf8) ?? ""
+                }
+                errorBlock(.statusCode(response.statusCode, dataString)) //Error
             } else if let data = data {
                 completionBlock(data) //Success
             } else {
@@ -104,27 +108,23 @@ public class SimpleHttp: NSObject {
                 errorBlock(.noData)
                 return
             }
-//
-//            guard let response = response else {
-//                errorBlock(self.genericError(errorInformation: "No response returned"))
-//                return
-//            }
-//
-//            guard let httpResponse = response as? HTTPURLResponse else {
-//                errorBlock(self.genericError(errorInformation: "Could not translate response to HTTPURLResponse: \(response.self)"))
-//                return
-//            }
-//
-//            guard let urlString = String(data: data, encoding: .utf8) else{
-//                errorBlock(self.genericError(errorInformation: "No URL from Data"))
-//                return
-//            }
-//
-//            guard httpResponse.statusCode == 200 else {
-//                errorBlock(self.genericError(errorInformation: "Status code \(httpResponse.statusCode) returned. Data: \(urlString)"))
-//                return
-//            }
-//
+            
+            guard let response = response else {
+                errorBlock(RestClientError.missingResponse)
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                errorBlock(RestClientError.missingResponse)
+                return
+            }
+            
+            guard httpResponse.statusCode >= 200 && httpResponse.statusCode <= 299 else {
+                let dataString = String(data: data, encoding: .utf8) ?? ""
+                errorBlock(RestClientError.statusCode(httpResponse.statusCode, dataString))
+                return
+            }
+
             completionBlock(data)
         }
         task.resume()
@@ -174,7 +174,11 @@ public class SimpleHttp: NSObject {
                 errorBlock(.serviceError(error)) //Error
             } else if let response = response as? HTTPURLResponse,
                 300..<600 ~= response.statusCode {
-                errorBlock(.statusCode(response.statusCode)) //Error
+                var dataString: String? = nil
+                if let responseData = responseData {
+                    dataString = String(data: responseData, encoding: .utf8) ?? ""
+                }
+                errorBlock(.statusCode(response.statusCode, dataString)) //Error
             } else if let data = responseData {
                 completionBlock(data) //Success
             } else {

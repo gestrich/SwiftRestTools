@@ -9,8 +9,10 @@
 import Foundation
 
 public enum RestClientError: Error {
+    case missingResponse
+    case returnDataType
     case serviceError(Error)
-    case statusCode(Int)
+    case statusCode(_ code: Int, _ body: String?)
     case noData
     case deserialization(Error)
 }
