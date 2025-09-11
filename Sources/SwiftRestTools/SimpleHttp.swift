@@ -52,7 +52,7 @@ public class SimpleHttp: NSObject {
         authHeaders += self.headers
         config.httpAdditionalHeaders = authHeaders
         
-        //print("Curl = \(curlRequestWithURL(url:url.absoluteString, headers:authHeaders))")
+        print("Curl = \(curlRequestWithURL(url:url.absoluteString, headers:authHeaders))")
         
         let session: URLSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
         
@@ -97,7 +97,8 @@ public class SimpleHttp: NSObject {
         let data = try! JSONEncoder().encode(payload)
         request.httpBody = data
         
-        let task = URLSession.shared.dataTask(with: request as URLRequest) { (data, response, error) in
+        let session = URLSession(configuration: config)
+        let task = session.dataTask(with: request as URLRequest) { (data, response, error) in
             
             if let error = error {
                 errorBlock(.serviceError(error))
