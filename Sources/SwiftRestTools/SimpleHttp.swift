@@ -37,11 +37,11 @@ public class SimpleHttp: NSObject {
         self.headers = headers
     }
     
-    func getData(url: URL, completionBlock:(@escaping (Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
+    func getData(url: URL) async throws -> Data {
         let request = URLRequest(url: url)
-        
+
         let config = URLSessionConfiguration.default
-        
+
         var authHeaders = [String: String]()
         if let auth = self.auth {
             let userPasswordData = "\(auth.username):\(auth.password)".data(using: .utf8)
@@ -51,39 +51,37 @@ public class SimpleHttp: NSObject {
         }
         authHeaders += self.headers
         config.httpAdditionalHeaders = authHeaders
-        
+
         print("Curl = \(curlRequestWithURL(url:url.absoluteString, headers:authHeaders))")
-        
+
         let session: URLSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
-        
-        let task = session.dataTask(with: request, completionHandler: { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("Error while trying to re-authenticate the user: \(error)")
-                    errorBlock(.serviceError(error)) //Error
-                } else if let response = response as? HTTPURLResponse,
-                    300..<600 ~= response.statusCode {
-                    var dataString: String? = nil
-                    if let data {
-                        dataString = String(data: data, encoding: .utf8) ?? ""
-                    }
-                    errorBlock(.statusCode(response.statusCode, dataString)) //Error
-                } else if let data = data {
-                    completionBlock(data) //Success
-                } else {
-                    errorBlock(.noData) //Error
-                }
+
+        do {
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw RestClientError.missingResponse
             }
-        })
-        
-        task.resume()
+
+            if 300..<600 ~= httpResponse.statusCode {
+                let dataString = String(data: data, encoding: .utf8) ?? ""
+                throw RestClientError.statusCode(httpResponse.statusCode, dataString)
+            }
+
+            return data
+        } catch let error as RestClientError {
+            throw error
+        } catch {
+            print("Error while trying to re-authenticate the user: \(error)")
+            throw RestClientError.serviceError(error)
+        }
     }
     
-    func peformJSONPost<T>(url: URL, payload: T, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void))  where T : Encodable {
-        
+    func peformJSONPost<T>(url: URL, payload: T) async throws -> Data where T : Encodable {
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        
+
         var authHeaders = [String: String]()
         if let auth = self.auth {
             let userPasswordData = "\(auth.username):\(auth.password)".data(using: .utf8)
@@ -92,59 +90,46 @@ public class SimpleHttp: NSObject {
             authHeaders["authorization"] = authString
         }
         authHeaders += self.headers
-        
+
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = authHeaders
-        
-        let data = try! JSONEncoder().encode(payload)
+
+        let data = try JSONEncoder().encode(payload)
         request.httpBody = data
-        
+
         let session = URLSession(configuration: config)
-        let task = session.dataTask(with: request as URLRequest) { (data, response, error) in
-            DispatchQueue.main.async {
-                if let error = error {
-                    errorBlock(.serviceError(error))
-                    return
-                }
 
-                guard let data = data else {
-                    errorBlock(.noData)
-                    return
-                }
+        do {
+            let (responseData, response) = try await session.data(for: request)
 
-                guard let response = response else {
-                    errorBlock(RestClientError.missingResponse)
-                    return
-                }
-
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    errorBlock(RestClientError.missingResponse)
-                    return
-                }
-
-                guard httpResponse.statusCode >= 200 && httpResponse.statusCode <= 299 else {
-                    let dataString = String(data: data, encoding: .utf8) ?? ""
-                    errorBlock(RestClientError.statusCode(httpResponse.statusCode, dataString))
-                    return
-                }
-
-                completionBlock(data)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw RestClientError.missingResponse
             }
+
+            guard httpResponse.statusCode >= 200 && httpResponse.statusCode <= 299 else {
+                let dataString = String(data: responseData, encoding: .utf8) ?? ""
+                throw RestClientError.statusCode(httpResponse.statusCode, dataString)
+            }
+
+            return responseData
+        } catch let error as RestClientError {
+            throw error
+        } catch {
+            throw RestClientError.serviceError(error)
         }
-        task.resume()
     }
     
-    func uploadFile(fileUrl: URL, destinationURL: URL, completionBlock:(@escaping (Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
-        
+    func uploadFile(fileUrl: URL, destinationURL: URL) async throws -> Data {
+
         let fileName = (fileUrl.path as NSString).lastPathComponent
         let fileData = FileManager.default.contents(atPath: fileUrl.path)!
-        let parameterNameForFile = "file" //TODO: move out of here as this is jira api specific
-        
+        let parameterNameForFile = "file"
+
         var urlRequest = URLRequest(url: destinationURL)
         urlRequest.httpMethod = "POST"
-        
+
         let config = URLSessionConfiguration.default
-        
+
         var headers = [String: String]()
         if let auth = self.auth {
             var authString = ""
@@ -153,46 +138,44 @@ public class SimpleHttp: NSObject {
             authString = "Basic \(base64EncodedCredential)"
             headers["authorization"] = authString
         }
-        
+
         headers += self.headers
         config.httpAdditionalHeaders = headers
-        
+
         let boundary = UUID().uuidString
         urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        
+
         var data = Data()
-        
+
         data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
         data.append("Content-Disposition: form-data; name=\"\(parameterNameForFile)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
-        
+
         let contentType = "application/octet-stream"
         data.append("Content-Type: \(contentType)\r\n\r\n".data(using: .utf8)!)
         data.append(fileData)
         data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-        
+
         let session: URLSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
 
-         let task = session.uploadTask(with: urlRequest, from: data, completionHandler: { responseData, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("Error while trying to re-authenticate the user: \(error)")
-                    errorBlock(.serviceError(error)) //Error
-                } else if let response = response as? HTTPURLResponse,
-                    300..<600 ~= response.statusCode {
-                    var dataString: String? = nil
-                    if let responseData = responseData {
-                        dataString = String(data: responseData, encoding: .utf8) ?? ""
-                    }
-                    errorBlock(.statusCode(response.statusCode, dataString)) //Error
-                } else if let data = responseData {
-                    completionBlock(data) //Success
-                } else {
-                    errorBlock(.noData) //Error
-                }
+        do {
+            let (responseData, response) = try await session.upload(for: urlRequest, from: data)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw RestClientError.missingResponse
             }
-        })
-        
-        task.resume()
+
+            if 300..<600 ~= httpResponse.statusCode {
+                let dataString = String(data: responseData, encoding: .utf8) ?? ""
+                throw RestClientError.statusCode(httpResponse.statusCode, dataString)
+            }
+
+            return responseData
+        } catch let error as RestClientError {
+            throw error
+        } catch {
+            print("Error while trying to re-authenticate the user: \(error)")
+            throw RestClientError.serviceError(error)
+        }
     }
     
 }

@@ -39,42 +39,42 @@ open class RestClient: NSObject {
         self.headers = headers
     }
     
-    public func getData(relativeURL: String, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
+    public func getData(relativeURL: String) async throws -> Data {
         let urlString = baseURL.appending(relativeURL)
-        getData(fullURL:urlString, completionBlock:completionBlock, errorBlock:errorBlock)
-    }
-    
-    public func getData(fullURL: String, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
-        var headersToSet = ["Content-Type":"application/json", "Accept":"application/json"]
-        if let headers = self.headers {
-            headersToSet += headers
-        }
-        let http = SimpleHttp(auth:self.auth, headers:headersToSet);
-        let url = URL(string: fullURL)!
-        http.getData(url:url, completionBlock:completionBlock, errorBlock:errorBlock)
-    }
-    
-    public func peformJSONPost<T>(relativeURL: String, payload: T, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void))  where T : Encodable {
-        let urlString = baseURL.appending(relativeURL)
-        peformJSONPost(fullURL: urlString, payload: payload, completionBlock: completionBlock, errorBlock: errorBlock)
-    }
-    
-    public func peformJSONPost<T>(fullURL: String, payload: T, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void))  where T : Encodable {
-        var headersToSet = ["Content-Type":"application/json", "Accept":"application/json"]
-        if let headers = self.headers {
-            headersToSet += headers
-        }
-        let http = SimpleHttp(auth:self.auth, headers:headersToSet);
-        let url = URL(string: fullURL)!
-        http.peformJSONPost(url: url, payload: payload, completionBlock: completionBlock, errorBlock: errorBlock)
+        return try await getData(fullURL: urlString)
     }
 
-    public func uploadFile(filePath: String, relativeDestinationPath: String, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
-        let fullDestinationPath = baseURL.appending(relativeDestinationPath)
-        uploadFile(filePath: filePath, fullDestinationPath: fullDestinationPath, completionBlock: completionBlock, errorBlock: errorBlock)
+    public func getData(fullURL: String) async throws -> Data {
+        var headersToSet = ["Content-Type":"application/json", "Accept":"application/json"]
+        if let headers = self.headers {
+            headersToSet += headers
+        }
+        let http = SimpleHttp(auth:self.auth, headers:headersToSet)
+        let url = URL(string: fullURL)!
+        return try await http.getData(url: url)
     }
     
-    public func uploadFile(filePath: String, fullDestinationPath: String, completionBlock:@escaping ((Data) -> Void), errorBlock:(@escaping (RestClientError) -> Void)){
+    public func peformJSONPost<T>(relativeURL: String, payload: T) async throws -> Data where T : Encodable {
+        let urlString = baseURL.appending(relativeURL)
+        return try await peformJSONPost(fullURL: urlString, payload: payload)
+    }
+
+    public func peformJSONPost<T>(fullURL: String, payload: T) async throws -> Data where T : Encodable {
+        var headersToSet = ["Content-Type":"application/json", "Accept":"application/json"]
+        if let headers = self.headers {
+            headersToSet += headers
+        }
+        let http = SimpleHttp(auth:self.auth, headers:headersToSet)
+        let url = URL(string: fullURL)!
+        return try await http.peformJSONPost(url: url, payload: payload)
+    }
+
+    public func uploadFile(filePath: String, relativeDestinationPath: String) async throws -> Data {
+        let fullDestinationPath = baseURL.appending(relativeDestinationPath)
+        return try await uploadFile(filePath: filePath, fullDestinationPath: fullDestinationPath)
+    }
+
+    public func uploadFile(filePath: String, fullDestinationPath: String) async throws -> Data {
         var headersToSet = ["Accept":"application/json", "X-Atlassian-Token":"nocheck"]
         if let headers = self.headers {
             headersToSet += headers
@@ -82,7 +82,7 @@ open class RestClient: NSObject {
         let http = SimpleHttp(auth:self.auth, headers:headersToSet)
         let destinationURL = URL(string: fullDestinationPath)!
         let fileURL = URL(string: filePath)!
-        http.uploadFile(fileUrl: fileURL, destinationURL: destinationURL, completionBlock: completionBlock, errorBlock: errorBlock)
+        return try await http.uploadFile(fileUrl: fileURL, destinationURL: destinationURL)
     }
     
     public func fullURLWithRelativeURL(relativeURL: String) -> String {

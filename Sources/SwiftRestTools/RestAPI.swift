@@ -94,42 +94,19 @@ public struct AnyAPIDefinition<In: Codable, Out: Codable>: APIDefinition {
 }
 
 extension RestClient {
-    
+
     public func performAPIOperation<T: APIDefinition>(input: T.In, apiDef: T) async throws -> T.Out {
-        return try await withCheckedThrowingContinuation { continuation in
-            self.performAPIOperation(input: input, apiDef: apiDef) { resp in
-                continuation.resume(returning: resp)
-            } errorBlock: { error in
-                continuation.resume(throwing: error)
-            }
-        }
-    }
-    
-    public func performAPIOperation<T: APIDefinition>(input: T.In, apiDef: T, completionBlock:@escaping ((T.Out) -> Void), errorBlock:(@escaping (Error) -> Void)){
-        
+        let data: Data
+
         switch apiDef.method {
         case .Get:
-            self.getData(relativeURL: apiDef.path()) { data in
-                do {
-                    completionBlock(try apiDef.convertJSONData(data))
-                } catch {
-                    errorBlock(error)
-                }
-            } errorBlock: { error in
-                errorBlock(error)
-            }
+            data = try await self.getData(relativeURL: apiDef.path())
         case .Post:
-            self.peformJSONPost(relativeURL: apiDef.path(), payload: input) { data in
-                do {
-                    completionBlock(try apiDef.convertJSONData(data))
-                } catch {
-                    errorBlock(error)
-                }
-            } errorBlock: { error in
-                errorBlock(error)
-            }
+            data = try await self.peformJSONPost(relativeURL: apiDef.path(), payload: input)
         case .None:
             fatalError("Can't perform None operation")
         }
+
+        return try apiDef.convertJSONData(data)
     }
 }
