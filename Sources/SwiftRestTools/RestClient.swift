@@ -20,23 +20,18 @@ public enum RestClientError: Error, Sendable {
 open class RestClient: NSObject, @unchecked Sendable {
 
     let baseURL: String
-    open var headers: [String:String]?
-    var auth : BasicAuth?
-    
-    public init(baseURL: String){
+    let headers: [String:String]?
+    let auth : BasicAuth?
+
+    public init(baseURL: String, auth: BasicAuth? = nil, headers: [String:String]? = nil) {
         self.baseURL = baseURL
-        super.init()
-    }
-    
-    public convenience init(baseURL: String, auth: BasicAuth){
-        self.init(baseURL: baseURL)
-        self.auth = auth
-    }
-    
-    public convenience init(baseURL: String, auth: BasicAuth?, headers:[String:String]?){
-        self.init(baseURL: baseURL)
         self.auth = auth
         self.headers = headers
+        super.init()
+    }
+
+    public convenience init(baseURL: String, auth: BasicAuth) {
+        self.init(baseURL: baseURL, auth: auth, headers: nil)
     }
     
     public func getData(relativeURL: String) async throws -> Data {
