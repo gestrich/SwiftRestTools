@@ -61,31 +61,33 @@ public protocol APIDefinition: RestAPI, Sendable {
     associatedtype In: Codable & Sendable
     associatedtype Out: Codable & Sendable
 
-    func convertJSONData(_ data: Data) throws -> Out
+    nonisolated func convertJSONData(_ data: Data) throws -> Out
 }
 
 extension APIDefinition {
-    public func convertJSONData(_ data: Data) throws -> Out {
+    public nonisolated func convertJSONData(_ data: Data) throws -> Out {
         return try JSONDecoder().decode(Out.self, from: data)
     }
 }
 
 
-public struct AnyAPIDefinition<In: Codable & Sendable, Out: Codable & Sendable>: APIDefinition, @unchecked Sendable {
+public struct AnyAPIDefinition<In: Codable & Sendable, Out: Codable & Sendable>: APIDefinition, Sendable {
     public var pathComponents: [String]
     public var parentPath: String
     public let method: MethodType
 
-    private let convertJSONDataClosure: (Data) throws -> Out
+    private let convertJSONDataClosure: @Sendable (Data) throws -> Out
 
     public init<Definition: APIDefinition>(wrappedDefinition: Definition) where Definition.Out == Out, Definition.In == In {
-        self.convertJSONDataClosure = wrappedDefinition.convertJSONData
+        self.convertJSONDataClosure = { @Sendable data in
+            try wrappedDefinition.convertJSONData(data)
+        }
         self.pathComponents = wrappedDefinition.pathComponents
         self.parentPath = wrappedDefinition.parentPath
         self.method = wrappedDefinition.method
     }
 
-    public func convertJSONData(_ data: Data) throws -> Out {
+    public nonisolated func convertJSONData(_ data: Data) throws -> Out {
         return try convertJSONDataClosure(data)
     }
 }
