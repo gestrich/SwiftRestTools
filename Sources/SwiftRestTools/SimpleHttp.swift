@@ -11,10 +11,10 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public struct BasicAuth {
+public struct BasicAuth: Sendable {
     let username : String
     let password : String
-    
+
     public init(username : String, password: String){
         self.username = username
         self.password = password
@@ -22,19 +22,15 @@ public struct BasicAuth {
 }
 
 
-public class SimpleHttp: NSObject {
-    
-    var auth : BasicAuth?
-    var headers: [String: String] = [String: String]()
-    
-    init(auth: BasicAuth?){
+public final class SimpleHttp: NSObject, Sendable {
+
+    let auth : BasicAuth?
+    let headers: [String: String]
+
+    init(auth: BasicAuth?, headers: [String: String] = [String: String]()){
         self.auth = auth
-        super.init()
-    }
-    
-    convenience init(auth: BasicAuth?, headers: [String: String]){
-        self.init(auth: auth)
         self.headers = headers
+        super.init()
     }
     
     func getData(url: URL) async throws -> Data {

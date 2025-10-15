@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum RestClientError: Error {
+public enum RestClientError: Error, Sendable {
     case missingResponse
     case returnDataType
     case serviceError(Error)
@@ -17,8 +17,8 @@ public enum RestClientError: Error {
     case deserialization(Error)
 }
 
-open class RestClient: NSObject {
-    
+open class RestClient: NSObject, @unchecked Sendable {
+
     let baseURL: String
     open var headers: [String:String]?
     var auth : BasicAuth?

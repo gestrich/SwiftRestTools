@@ -50,17 +50,17 @@ public class PathComponentBuilder {
     }
 }
 
-public enum MethodType {
+public enum MethodType: Sendable {
     case Get
     case Post
     case None
 }
 
-public protocol APIDefinition: RestAPI {
+public protocol APIDefinition: RestAPI, Sendable {
     var method: MethodType { get }
-    associatedtype In: Codable
-    associatedtype Out: Codable
-    
+    associatedtype In: Codable & Sendable
+    associatedtype Out: Codable & Sendable
+
     func convertJSONData(_ data: Data) throws -> Out
 }
 
@@ -71,25 +71,22 @@ extension APIDefinition {
 }
 
 
-public struct AnyAPIDefinition<In: Codable, Out: Codable>: APIDefinition {
+public struct AnyAPIDefinition<In: Codable & Sendable, Out: Codable & Sendable>: APIDefinition, @unchecked Sendable {
     public var pathComponents: [String]
     public var parentPath: String
     public let method: MethodType
-    
-    private let convertJSONData: (Data) throws -> Out
-    
-    //typealias In = In
-    //typealias Out = Out
-    
+
+    private let convertJSONDataClosure: (Data) throws -> Out
+
     public init<Definition: APIDefinition>(wrappedDefinition: Definition) where Definition.Out == Out, Definition.In == In {
-        self.convertJSONData = wrappedDefinition.convertJSONData
+        self.convertJSONDataClosure = wrappedDefinition.convertJSONData
         self.pathComponents = wrappedDefinition.pathComponents
         self.parentPath = wrappedDefinition.parentPath
         self.method = wrappedDefinition.method
     }
-    
+
     public func convertJSONData(_ data: Data) throws -> Out {
-        return try convertJSONData(data)
+        return try convertJSONDataClosure(data)
     }
 }
 
