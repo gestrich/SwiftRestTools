@@ -57,20 +57,22 @@ public class SimpleHttp: NSObject {
         let session: URLSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
         
         let task = session.dataTask(with: request, completionHandler: { data, response, error in
-            if let error = error {
-                print("Error while trying to re-authenticate the user: \(error)")
-                errorBlock(.serviceError(error)) //Error
-            } else if let response = response as? HTTPURLResponse,
-                300..<600 ~= response.statusCode {
-                var dataString: String? = nil
-                if let data {
-                    dataString = String(data: data, encoding: .utf8) ?? ""
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Error while trying to re-authenticate the user: \(error)")
+                    errorBlock(.serviceError(error)) //Error
+                } else if let response = response as? HTTPURLResponse,
+                    300..<600 ~= response.statusCode {
+                    var dataString: String? = nil
+                    if let data {
+                        dataString = String(data: data, encoding: .utf8) ?? ""
+                    }
+                    errorBlock(.statusCode(response.statusCode, dataString)) //Error
+                } else if let data = data {
+                    completionBlock(data) //Success
+                } else {
+                    errorBlock(.noData) //Error
                 }
-                errorBlock(.statusCode(response.statusCode, dataString)) //Error
-            } else if let data = data {
-                completionBlock(data) //Success
-            } else {
-                errorBlock(.noData) //Error
             }
         })
         
@@ -99,34 +101,35 @@ public class SimpleHttp: NSObject {
         
         let session = URLSession(configuration: config)
         let task = session.dataTask(with: request as URLRequest) { (data, response, error) in
-            
-            if let error = error {
-                errorBlock(.serviceError(error))
-                return
-            }
-            
-            guard let data = data else {
-                errorBlock(.noData)
-                return
-            }
-            
-            guard let response = response else {
-                errorBlock(RestClientError.missingResponse)
-                return
-            }
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                errorBlock(RestClientError.missingResponse)
-                return
-            }
-            
-            guard httpResponse.statusCode >= 200 && httpResponse.statusCode <= 299 else {
-                let dataString = String(data: data, encoding: .utf8) ?? ""
-                errorBlock(RestClientError.statusCode(httpResponse.statusCode, dataString))
-                return
-            }
+            DispatchQueue.main.async {
+                if let error = error {
+                    errorBlock(.serviceError(error))
+                    return
+                }
 
-            completionBlock(data)
+                guard let data = data else {
+                    errorBlock(.noData)
+                    return
+                }
+
+                guard let response = response else {
+                    errorBlock(RestClientError.missingResponse)
+                    return
+                }
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    errorBlock(RestClientError.missingResponse)
+                    return
+                }
+
+                guard httpResponse.statusCode >= 200 && httpResponse.statusCode <= 299 else {
+                    let dataString = String(data: data, encoding: .utf8) ?? ""
+                    errorBlock(RestClientError.statusCode(httpResponse.statusCode, dataString))
+                    return
+                }
+
+                completionBlock(data)
+            }
         }
         task.resume()
     }
@@ -170,20 +173,22 @@ public class SimpleHttp: NSObject {
         let session: URLSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
 
          let task = session.uploadTask(with: urlRequest, from: data, completionHandler: { responseData, response, error in
-            if let error = error {
-                print("Error while trying to re-authenticate the user: \(error)")
-                errorBlock(.serviceError(error)) //Error
-            } else if let response = response as? HTTPURLResponse,
-                300..<600 ~= response.statusCode {
-                var dataString: String? = nil
-                if let responseData = responseData {
-                    dataString = String(data: responseData, encoding: .utf8) ?? ""
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Error while trying to re-authenticate the user: \(error)")
+                    errorBlock(.serviceError(error)) //Error
+                } else if let response = response as? HTTPURLResponse,
+                    300..<600 ~= response.statusCode {
+                    var dataString: String? = nil
+                    if let responseData = responseData {
+                        dataString = String(data: responseData, encoding: .utf8) ?? ""
+                    }
+                    errorBlock(.statusCode(response.statusCode, dataString)) //Error
+                } else if let data = responseData {
+                    completionBlock(data) //Success
+                } else {
+                    errorBlock(.noData) //Error
                 }
-                errorBlock(.statusCode(response.statusCode, dataString)) //Error
-            } else if let data = responseData {
-                completionBlock(data) //Success
-            } else {
-                errorBlock(.noData) //Error
             }
         })
         
